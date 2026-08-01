@@ -1,4 +1,4 @@
-from PySide6.QtGui import QImage
+from PySide6.QtGui import QImage, QTextCursor
 
 from app.ui.editor import CHECKBOX_CHECKED, CHECKBOX_UNCHECKED, NoteEditorWidget
 
@@ -82,6 +82,38 @@ def test_checklist_insert_and_toggle(qtbot):
     block = editor._body_edit.document().firstBlock()
     editor._body_edit._toggle_checkbox(block)
     assert editor._body_edit.toPlainText().startswith(CHECKBOX_CHECKED)
+
+
+def test_checklist_button_removes_checkbox_when_pressed_again(qtbot):
+    editor = _make_editor(qtbot)
+    editor._body_edit.setPlainText("Buy milk")
+
+    editor._insert_checklist_item()
+    assert editor._body_edit.toPlainText() == f"{CHECKBOX_UNCHECKED} Buy milk"
+
+    cursor = editor._body_edit.textCursor()
+    cursor.movePosition(QTextCursor.MoveOperation.Start)
+    editor._body_edit.setTextCursor(cursor)
+
+    editor._insert_checklist_item()
+    assert editor._body_edit.toPlainText() == "Buy milk"
+
+
+def test_checklist_button_removes_checked_checkbox_too(qtbot):
+    editor = _make_editor(qtbot)
+    editor._body_edit.setPlainText("Buy milk")
+
+    editor._insert_checklist_item()
+    block = editor._body_edit.document().firstBlock()
+    editor._body_edit._toggle_checkbox(block)
+    assert editor._body_edit.toPlainText() == f"{CHECKBOX_CHECKED} Buy milk"
+
+    cursor = editor._body_edit.textCursor()
+    cursor.movePosition(QTextCursor.MoveOperation.Start)
+    editor._body_edit.setTextCursor(cursor)
+
+    editor._insert_checklist_item()
+    assert editor._body_edit.toPlainText() == "Buy milk"
 
 
 def test_insert_image_embeds_base64_data_uri(qtbot):

@@ -220,10 +220,18 @@ class NoteEditorWidget(QWidget):
         cursor.endEditBlock()
 
     def _insert_checklist_item(self) -> None:
+        """Toggles the checkbox glyph prefix on the current line: adds it if
+        absent, removes the glyph (and its trailing space) if already present
+        -- so pressing the toolbar button again undoes the first press."""
         cursor = self._body_edit.textCursor()
         cursor.beginEditBlock()
         cursor.movePosition(QTextCursor.MoveOperation.StartOfBlock)
-        if not cursor.block().text().startswith((CHECKBOX_UNCHECKED, CHECKBOX_CHECKED)):
+        text = cursor.block().text()
+        if text[:1] in (CHECKBOX_UNCHECKED, CHECKBOX_CHECKED):
+            prefix_len = 2 if text[1:2] == " " else 1
+            cursor.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.KeepAnchor, prefix_len)
+            cursor.removeSelectedText()
+        else:
             cursor.insertText(f"{CHECKBOX_UNCHECKED} ")
         cursor.endEditBlock()
 
