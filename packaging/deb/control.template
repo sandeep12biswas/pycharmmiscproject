@@ -1,0 +1,9 @@
+Package: noteapp
+Version: ${VERSION}
+Section: utils
+Priority: optional
+Architecture: ${ARCH}
+Maintainer: Sandeep Biswas <sandeep12.biswas@gmail.com>
+Description: Local-first note-taking desktop app
+ NoteApp is a standalone PySide6 desktop note-taking application,
+ packaged as a self-contained PyInstaller bundle.
