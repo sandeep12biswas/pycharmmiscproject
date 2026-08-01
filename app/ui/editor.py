@@ -1,4 +1,5 @@
 import base64
+from typing import List
 
 from PySide6.QtCore import QBuffer, QIODevice, Qt, Signal
 from PySide6.QtGui import (
@@ -19,6 +20,9 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from app.models.tag import Tag
+from app.ui.tags_widget import TagChipEditor
 
 CHECKBOX_UNCHECKED = "☐"  # ☐
 CHECKBOX_CHECKED = "☑"  # ☑
@@ -51,6 +55,8 @@ class NoteEditorWidget(QWidget):
     """Rich-text note editor: title field + formatting toolbar + body editor."""
 
     contentChanged = Signal()
+    tagAddRequested = Signal(str)  # tag name typed by the user
+    tagRemoveRequested = Signal(int)  # tag_id
 
     HEADING_LEVELS = ["Normal", "Heading 1", "Heading 2", "Heading 3"]
     HEADING_SIZES = {0: None, 1: 22, 2: 18, 3: 15}
@@ -65,11 +71,16 @@ class NoteEditorWidget(QWidget):
 
         self._body_edit = NoteTextEdit(self)
 
+        self._tags_widget = TagChipEditor(self)
+        self._tags_widget.tagAddRequested.connect(self.tagAddRequested)
+        self._tags_widget.tagRemoveRequested.connect(self.tagRemoveRequested)
+
         self._toolbar = self._build_toolbar()
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.addWidget(self._title_edit)
+        layout.addWidget(self._tags_widget)
         layout.addWidget(self._toolbar)
         layout.addWidget(self._body_edit)
 
@@ -251,16 +262,23 @@ class NoteEditorWidget(QWidget):
         if not self._loading:
             self.contentChanged.emit()
 
-    def load(self, title: str, content_html: str) -> None:
+    def load(self, title: str, content_html: str, tags: List[Tag] = ()) -> None:
         """Load a note into the editor. Signals are suppressed for the duration
         (via self._loading) so programmatic loading never triggers autosave."""
         self._loading = True
         self._title_edit.setText(title)
         self._body_edit.setHtml(content_html)
+        self._tags_widget.set_tags(list(tags))
         self._loading = False
 
     def clear(self) -> None:
-        self.load("", "")
+        self.load("", "", [])
+
+    def set_tags(self, tags: List[Tag]) -> None:
+        self._tags_widget.set_tags(tags)
+
+    def set_available_tag_names(self, names: List[str]) -> None:
+        self._tags_widget.set_available_tag_names(names)
 
     def title(self) -> str:
         return self._title_edit.text()
@@ -275,3 +293,4 @@ class NoteEditorWidget(QWidget):
         self._title_edit.setEnabled(enabled)
         self._body_edit.setEnabled(enabled)
         self._toolbar.setEnabled(enabled)
+        self._tags_widget.set_enabled(enabled)

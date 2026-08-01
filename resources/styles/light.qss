@@ -1,0 +1,21 @@
+QWidget {
+    selection-background-color: palette(highlight);
+    selection-color: palette(highlighted-text);
+}
+
+QLineEdit, QTextEdit {
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    padding: 2px 4px;
+    background: palette(base);
+    color: palette(text);
+}
+
+QToolBar {
+    border: none;
+    spacing: 4px;
+}
+
+QTreeView, QListView {
+    border: 1px solid #dddddd;
+}
