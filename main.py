@@ -1,7 +1,9 @@
 import sys
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
+from app.config import RESOURCES_DIR
 from app.db.connection import open_database
 from app.repositories.folders_repo import FoldersRepository
 from app.repositories.notes_repo import NotesRepository
@@ -13,6 +15,7 @@ from app.ui.theme import apply_theme, load_theme
 
 def main() -> int:
     app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon(str(RESOURCES_DIR / "icons" / "icon.png")))
     apply_theme(app, load_theme())
     conn = open_database()
     repo = NotesRepository(conn)
