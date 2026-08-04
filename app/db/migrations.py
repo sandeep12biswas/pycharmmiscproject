@@ -1,5 +1,8 @@
+import logging
 import sqlite3
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 CURRENT_VERSION = 1
@@ -20,6 +23,7 @@ def migrate(conn: sqlite3.Connection) -> None:
     """
     version = get_user_version(conn)
     if version < 1:
+        logger.info("Applying schema migration: user_version %s -> 1", version)
         conn.executescript(SCHEMA_PATH.read_text())
         set_user_version(conn, 1)
     conn.commit()

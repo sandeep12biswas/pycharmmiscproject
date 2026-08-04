@@ -1,5 +1,6 @@
-from PySide6.QtGui import QImage, QTextCursor
+from PySide6.QtGui import QFont, QFontDatabase, QImage, QTextCursor
 
+from app.ui import font_prefs
 from app.ui.editor import CHECKBOX_CHECKED, CHECKBOX_UNCHECKED, NoteEditorWidget
 
 
@@ -43,8 +44,6 @@ def test_bold_toolbar_action_applies_formatting(qtbot):
     editor._body_edit.selectAll()
 
     editor._bold_action.trigger()
-
-    from PySide6.QtGui import QFont
 
     fmt = editor._body_edit.textCursor().charFormat()
     assert fmt.fontWeight() == QFont.Weight.Bold
@@ -163,3 +162,49 @@ def test_set_enabled_disables_all_child_widgets(qtbot):
     assert not editor._title_edit.isEnabled()
     assert not editor._body_edit.isEnabled()
     assert not editor._toolbar.isEnabled()
+
+
+def test_editor_applies_remembered_font_on_construction(qtbot, monkeypatch, tmp_path):
+    monkeypatch.setattr(font_prefs, "get_settings_path", lambda: tmp_path / "settings.ini")
+    remembered = QFontDatabase.families()[0]
+    font_prefs.save_font_family(remembered)
+
+    editor = _make_editor(qtbot)
+
+    assert editor._font_combo.currentFont().family() == remembered
+    assert editor._body_edit.document().defaultFont().family() == remembered
+
+
+def test_font_combo_selection_applies_formatting_and_persists(qtbot, monkeypatch, tmp_path):
+    monkeypatch.setattr(font_prefs, "get_settings_path", lambda: tmp_path / "settings.ini")
+
+    editor = _make_editor(qtbot)
+    editor._body_edit.setPlainText("pick a font")
+    editor._body_edit.selectAll()
+
+    families = QFontDatabase.families()
+    target = next(f for f in families if f != editor._font_combo.currentFont().family())
+
+    editor._font_combo.setCurrentFont(QFont(target))
+
+    fmt = editor._body_edit.textCursor().charFormat()
+    assert fmt.font().family() == target
+    assert font_prefs.load_font_family() == target
+
+
+def test_cursor_position_sync_reflects_font_under_cursor(qtbot, monkeypatch, tmp_path):
+    monkeypatch.setattr(font_prefs, "get_settings_path", lambda: tmp_path / "settings.ini")
+
+    editor = _make_editor(qtbot)
+    editor._body_edit.setPlainText("mixed fonts")
+    editor._body_edit.selectAll()
+
+    families = QFontDatabase.families()
+    target = next(f for f in families if f != editor._font_combo.currentFont().family())
+    editor._font_combo.setCurrentFont(QFont(target))
+
+    cursor = editor._body_edit.textCursor()
+    cursor.movePosition(QTextCursor.MoveOperation.Start)
+    editor._body_edit.setTextCursor(cursor)
+
+    assert editor._font_combo.currentFont().family() == target

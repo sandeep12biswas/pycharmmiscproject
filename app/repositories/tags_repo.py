@@ -1,7 +1,10 @@
+import logging
 import sqlite3
 from typing import List, Optional
 
 from app.models.tag import Tag
+
+logger = logging.getLogger(__name__)
 
 
 class TagsRepository:
@@ -11,6 +14,7 @@ class TagsRepository:
     def create(self, name: str, color: Optional[str] = None) -> Tag:
         cursor = self._conn.execute("INSERT INTO tags (name, color) VALUES (?, ?)", (name, color))
         self._conn.commit()
+        logger.debug("Created tag id=%s name=%r", cursor.lastrowid, name)
         return self.get(cursor.lastrowid)
 
     def get(self, tag_id: int) -> Optional[Tag]:
@@ -46,17 +50,21 @@ class TagsRepository:
             "INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?, ?)", (note_id, tag_id)
         )
         self._conn.commit()
+        logger.debug("Assigned tag id=%s to note id=%s", tag_id, note_id)
 
     def unassign(self, note_id: int, tag_id: int) -> None:
         self._conn.execute(
             "DELETE FROM note_tags WHERE note_id = ? AND tag_id = ?", (note_id, tag_id)
         )
         self._conn.commit()
+        logger.debug("Unassigned tag id=%s from note id=%s", tag_id, note_id)
 
     def rename(self, tag_id: int, name: str) -> None:
         self._conn.execute("UPDATE tags SET name = ? WHERE id = ?", (name, tag_id))
         self._conn.commit()
+        logger.debug("Renamed tag id=%s to %r", tag_id, name)
 
     def delete(self, tag_id: int) -> None:
         self._conn.execute("DELETE FROM tags WHERE id = ?", (tag_id,))
         self._conn.commit()
+        logger.info("Deleted tag id=%s", tag_id)

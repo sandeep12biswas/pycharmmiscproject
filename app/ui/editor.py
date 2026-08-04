@@ -14,6 +14,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
+    QFontComboBox,
     QLineEdit,
     QTextEdit,
     QToolBar,
@@ -22,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.models.tag import Tag
+from app.ui.font_prefs import load_font_family, save_font_family
 from app.ui.tags_widget import TagChipEditor
 
 CHECKBOX_UNCHECKED = "☐"  # ☐
@@ -76,6 +78,7 @@ class NoteEditorWidget(QWidget):
         self._tags_widget.tagRemoveRequested.connect(self.tagRemoveRequested)
 
         self._toolbar = self._build_toolbar()
+        self._apply_default_font()
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
@@ -111,6 +114,10 @@ class NoteEditorWidget(QWidget):
         self._strike_action.setCheckable(True)
         self._strike_action.triggered.connect(self._toggle_strikethrough)
         toolbar.addAction(self._strike_action)
+
+        self._font_combo = QFontComboBox(self)
+        self._font_combo.currentFontChanged.connect(self._on_font_changed)
+        toolbar.addWidget(self._font_combo)
 
         toolbar.addSeparator()
 
@@ -169,6 +176,25 @@ class NoteEditorWidget(QWidget):
         fmt.setFontStrikeOut(checked)
         self._merge_format(fmt)
 
+    def _apply_default_font(self) -> None:
+        """Applies the remembered (or Aptos-if-installed, else app-default)
+        font as the editor's default at construction time, mirroring how
+        app/ui/theme.py loads the saved theme before it's used."""
+        font = QFont(load_font_family())
+        self._body_edit.setFont(font)
+        self._body_edit.document().setDefaultFont(font)
+        self._font_combo.blockSignals(True)
+        self._font_combo.setCurrentFont(font)
+        self._font_combo.blockSignals(False)
+
+    def _on_font_changed(self, font: QFont) -> None:
+        family = font.family()
+        fmt = QTextCharFormat()
+        fmt.setFontFamilies([family])
+        self._merge_format(fmt)
+        self._body_edit.document().setDefaultFont(font)
+        save_font_family(family)
+
     def _sync_toolbar_from_cursor(self) -> None:
         self._sync_toolbar_from_format(self._body_edit.currentCharFormat())
 
@@ -182,6 +208,26 @@ class NoteEditorWidget(QWidget):
             action.blockSignals(True)
             action.setChecked(is_active)
             action.blockSignals(False)
+
+        # Skipped while a note is being programmatically loaded: setHtml() on
+        # a large note fires currentCharFormatChanged per block, and repeated
+        # QFontComboBox.setCurrentFont() calls in that hot path are both slow
+        # and (observed directly) capable of crashing Qt's font matching.
+        # The combo is already correct from _apply_default_font() / the
+        # editor's remembered font, and will resync as soon as the user
+        # actually interacts with the loaded note.
+        if self._loading:
+            return
+
+        # fmt.fontFamily() is Qt's deprecated accessor and (observed directly
+        # in this environment) can crash when read repeatedly from inside
+        # currentCharFormatChanged/cursorPositionChanged handlers -- fmt.font()
+        # is the non-deprecated, crash-free equivalent.
+        family = fmt.font().family()
+        if family:
+            self._font_combo.blockSignals(True)
+            self._font_combo.setCurrentFont(QFont(family))
+            self._font_combo.blockSignals(False)
 
     # -- block formatting (headings) --------------------------------------------
 

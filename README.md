@@ -117,12 +117,31 @@ app/search/         fts.py: builds safe quoted/prefixed FTS5 MATCH queries, bm25
 app/export/         markdown_export.py, pdf_export.py (via QTextDocument/QPrinter)
 app/reminders/      scheduler.py: QTimer-polling ReminderScheduler (45s interval), in-process only
 app/config.py       QStandardPaths-based app-data dir, DB path, RESOURCES_DIR (frozen-build-aware)
+app/logging_config.py  configure_logging()/install_excepthook(); stdlib-only so it's safe to use
+                        from repositories/ and models/ too
 ```
 
 `main.py` opens a single `sqlite3.Connection`, constructs one instance of each repository
 (`NotesRepository`, `FoldersRepository`, `TagsRepository`, `RemindersRepository`), and passes
 them into `MainWindow`. `MainWindow` wires UI widgets to `NoteController`, the only component
 that writes note content to the database.
+
+## Logging
+
+`main.py` calls `configure_logging()` once at startup, before anything else runs. Every module
+gets its own logger via the standard `logger = logging.getLogger(__name__)` pattern and logs
+through it — no other module touches handlers directly.
+
+- **Destination**: a rotating log file at `<app-data-dir>/logs/noteapp.log` (2 MB × 3 backups),
+  plus a console (stderr) handler for `python main.py` runs.
+  On Linux that's `~/.local/share/NoteApp/logs/noteapp.log`.
+- **Level**: `INFO` by default — lifecycle events (DB open/migration, note trash/restore/delete,
+  reminders firing, exports, window close) are logged at `INFO`; frequent/low-signal events
+  (autosave writes, pin/tag toggles) are logged at `DEBUG` and stay quiet unless you raise the
+  level.
+- **Crashes**: `install_excepthook()` routes any uncaught exception into the log at `CRITICAL`
+  (with traceback) before falling through to the default handler, so a crash is never silent —
+  it's recorded even if no one was watching the console (ties to NFR-2, data integrity).
 
 ## Limitations (v1)
 

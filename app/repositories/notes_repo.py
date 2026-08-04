@@ -1,8 +1,11 @@
+import logging
 import sqlite3
 from typing import List, Optional
 
 from app.models.note import Note
 from app.search.fts import search_note_ids
+
+logger = logging.getLogger(__name__)
 
 
 class NotesRepository:
@@ -24,6 +27,7 @@ class NotesRepository:
             (title, content_html, content_plain, folder_id),
         )
         self._conn.commit()
+        logger.debug("Created note id=%s", cursor.lastrowid)
         return self.get(cursor.lastrowid)
 
     def get(self, note_id: int) -> Optional[Note]:
@@ -79,6 +83,7 @@ class NotesRepository:
             (title, content_html, content_plain, note_id),
         )
         self._conn.commit()
+        logger.debug("Autosaved note id=%s (title=%r)", note_id, title)
 
     def move_to_folder(self, note_id: int, folder_id: Optional[int]) -> None:
         self._conn.execute(
@@ -86,6 +91,7 @@ class NotesRepository:
             (folder_id, note_id),
         )
         self._conn.commit()
+        logger.debug("Moved note id=%s to folder_id=%s", note_id, folder_id)
 
     def toggle_pin(self, note_id: int) -> None:
         self._conn.execute(
@@ -93,6 +99,7 @@ class NotesRepository:
             (note_id,),
         )
         self._conn.commit()
+        logger.debug("Toggled pin on note id=%s", note_id)
 
     def toggle_favorite(self, note_id: int) -> None:
         self._conn.execute(
@@ -100,6 +107,7 @@ class NotesRepository:
             (note_id,),
         )
         self._conn.commit()
+        logger.debug("Toggled favorite on note id=%s", note_id)
 
     def trash(self, note_id: int) -> None:
         self._conn.execute(
@@ -107,6 +115,7 @@ class NotesRepository:
             (note_id,),
         )
         self._conn.commit()
+        logger.info("Trashed note id=%s", note_id)
 
     def restore(self, note_id: int) -> None:
         self._conn.execute(
@@ -114,6 +123,7 @@ class NotesRepository:
             (note_id,),
         )
         self._conn.commit()
+        logger.info("Restored note id=%s from trash", note_id)
 
     def list_trashed(self) -> List[Note]:
         rows = self._conn.execute(
@@ -124,3 +134,4 @@ class NotesRepository:
     def delete_permanently(self, note_id: int) -> None:
         self._conn.execute("DELETE FROM notes WHERE id = ?", (note_id,))
         self._conn.commit()
+        logger.info("Permanently deleted note id=%s", note_id)

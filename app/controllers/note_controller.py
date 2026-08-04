@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 
 from PySide6.QtCore import QObject, QTimer, Signal
@@ -8,6 +9,8 @@ from app.repositories.tags_repo import TagsRepository
 from app.ui.editor import NoteEditorWidget
 from app.ui.models_qt import NoteListModel
 from app.ui.note_list import NoteListWidget
+
+logger = logging.getLogger(__name__)
 
 AUTOSAVE_DEBOUNCE_MS = 1500
 
@@ -55,6 +58,7 @@ class NoteController(QObject):
     def new_note(self) -> None:
         self.flush_pending()
         note = self._repo.create(title="Untitled")
+        logger.debug("New note created via controller: id=%s", note.id)
         self._model.refresh()
         self._note_list.select_note(note.id)
 

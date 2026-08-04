@@ -1,10 +1,12 @@
+import logging
 import sys
 
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
-from app.config import RESOURCES_DIR
+from app.config import RESOURCES_DIR, get_app_data_dir
 from app.db.connection import open_database
+from app.logging_config import configure_logging, install_excepthook
 from app.repositories.folders_repo import FoldersRepository
 from app.repositories.notes_repo import NotesRepository
 from app.repositories.reminders_repo import RemindersRepository
@@ -12,9 +14,15 @@ from app.repositories.tags_repo import TagsRepository
 from app.ui.main_window import MainWindow
 from app.ui.theme import apply_theme, load_theme
 
+logger = logging.getLogger(__name__)
+
 
 def main() -> int:
     app = QApplication(sys.argv)
+    configure_logging(get_app_data_dir() / "logs")
+    install_excepthook()
+    logger.info("NoteApp starting")
+
     app.setWindowIcon(QIcon(str(RESOURCES_DIR / "icons" / "icon.png")))
     apply_theme(app, load_theme())
     conn = open_database()
@@ -26,6 +34,7 @@ def main() -> int:
     window.show()
     exit_code = app.exec()
     conn.close()
+    logger.info("NoteApp exiting (code=%s)", exit_code)
     return exit_code
 
 

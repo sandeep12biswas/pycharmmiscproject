@@ -1,7 +1,10 @@
+import logging
 import sqlite3
 from typing import List, Optional
 
 from app.models.reminder import Reminder
+
+logger = logging.getLogger(__name__)
 
 
 class RemindersRepository:
@@ -14,6 +17,7 @@ class RemindersRepository:
             (note_id, remind_at, message),
         )
         self._conn.commit()
+        logger.info("Created reminder id=%s for note id=%s at %s", cursor.lastrowid, note_id, remind_at)
         return self.get(cursor.lastrowid)
 
     def get(self, reminder_id: int) -> Optional[Reminder]:
@@ -46,7 +50,9 @@ class RemindersRepository:
     def mark_done(self, reminder_id: int) -> None:
         self._conn.execute("UPDATE reminders SET is_done = 1 WHERE id = ?", (reminder_id,))
         self._conn.commit()
+        logger.debug("Marked reminder id=%s done", reminder_id)
 
     def delete(self, reminder_id: int) -> None:
         self._conn.execute("DELETE FROM reminders WHERE id = ?", (reminder_id,))
         self._conn.commit()
+        logger.debug("Deleted reminder id=%s", reminder_id)
