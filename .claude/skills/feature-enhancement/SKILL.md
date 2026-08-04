@@ -1,7 +1,7 @@
 ---
 name: feature-enhancement
 description: Implement a feature enhancement for the NoteApp project starting from any Jira issue key in the SCRUM project (SCRUM-1, SCRUM-42, SCRUM-<any number>, etc.) or a jira link like https://sandeep12biswas.atlassian.net/browse/SCRUM-<number>. Fetches and summarizes the story, gets explicit user confirmation before writing any code, implements the change following this repo's architecture rules, and finishes by writing/running unit tests. Use this whenever the user says things like "implement SCRUM-12", "work on this jira ticket", "pick up the story at <jira link>", or "start the enhancement for <issue key>" — not for bug fixes with no Jira ticket, and not for ad-hoc requests that don't reference a Jira issue.
-arguments : JIRA-number
+arguments : JIRA-number [base-branch]
 ---
 
 # Feature Enhancement (Jira-driven)
@@ -22,6 +22,11 @@ key, and don't assume it's always the same one from a previous run of this skill
 Extract the key from a URL with the pattern `/browse/([A-Z]+-\d+)`; otherwise the input is
 already the key. This pattern matches any project prefix, not just SCRUM, in case the site ever
 has more than one project.
+
+Optionally, the user may also supply a git branch name to build on (e.g. "implement SCRUM-23 off
+feature/working-app-V2"). If given, that's the **base branch** the new feature branch gets created
+from in Step 4. If not given, the base branch defaults to `develop` — don't ask unless the request is
+genuinely ambiguous about which existing branch it relates to.
 
 ## Step 1 — Fetch the issue
 
@@ -68,9 +73,40 @@ Use `AskUserQuestion` to get an explicit go-ahead. Something like:
 Do not write, edit, or run anything beyond read-only exploration until the user confirms. If
 they want changes to scope, update the summary and ask again — don't silently reinterpret.
 
-## Step 4 — Implement
+## Step 4 — Branch setup
 
-Once confirmed, implement the change following this repo's rules from `CLAUDE.md`:
+Once confirmed, before touching any files, set up an isolated branch for this story — never
+implement directly on top of whatever branch happened to be checked out when the skill started.
+
+1. **Resolve the base branch**: the git branch name supplied in the input (see Input section)
+   if there was one, otherwise `main`.
+2. **Import the base branch into the local repo** — it may only exist on `origin` (e.g. another
+   session pushed it, or it was never checked out locally):
+   - `git fetch origin <base-branch>`
+   - If `<base-branch>` has no local ref yet, create one tracking the remote:
+     `git checkout -b <base-branch> origin/<base-branch>`.
+   - If it already exists locally, fast-forward it instead of recreating it:
+     `git checkout <base-branch> && git pull --ff-only origin <base-branch>`.
+   - If the fetch fails because the branch doesn't exist on `origin` either, stop and tell the
+     user — don't silently fall back to `main` without asking, since they explicitly named a
+     different base.
+3. **Check for uncommitted local changes** (`git status --porcelain`) before switching anything.
+   If there are changes unrelated to this story, stop and ask how to handle them (stash, commit,
+   discard) rather than dragging them onto the new branch unasked.
+4. **Create the feature branch** off the now-local base branch, following this repo's existing
+   `feature/<slug>` naming convention (see `feature/logging`, `feature/working-app-V2`):
+   `git checkout -b feature/<issue-key-lowercased>[-<short-kebab-slug>] <base-branch>`
+   (e.g. `feature/scrum-23-dark-mode-toggle`), using the issue key from Step 1 so the branch is
+   traceable back to the ticket.
+   - If a branch with that name already exists locally, ask the user whether to reuse it (e.g.
+     resuming earlier work on the same story) or pick a different name — don't force-overwrite
+     silently.
+
+All implementation work from Step 5 onward happens on this new branch.
+
+## Step 5 — Implement
+
+Once the branch is set up, implement the change following this repo's rules from `CLAUDE.md`:
 
 - Respect the strict layering (`app/ui/` and `app/controllers/` never import `sqlite3`;
   `app/repositories/` and `app/models/` never import `PySide6`; no networking modules anywhere in
@@ -83,7 +119,7 @@ Once confirmed, implement the change following this repo's rules from `CLAUDE.md
   codebase has consistent conventions per layer (dataclasses + `from_row()` in `app/models/`, one
   repository method per table-ish concern, controller-mediated writes, etc.).
 
-## Step 5 — Unit testing
+## Step 6 — Unit testing
 
 Once the change is implemented:
 
@@ -97,14 +133,49 @@ Once the change is implemented:
 3. If anything fails, fix it and rerun until the suite is green. Report the actual pass/fail
    counts — don't claim success without having run it.
 
-## Step 6 — Wrap up
+## Step 7 — Code commit, push the code to git hub
+
+Only after Step 6's test suite is green:
+
+1. Review scope before staging: `git status` / `git diff` to confirm everything staged actually
+   belongs to this story. `git add` the touched files (or `git add -A` only if the whole diff is
+   in-scope) — don't sweep in unrelated stray changes.
+2. Commit with a message following this repo's existing convention (see `git log`, e.g.
+   `Added feature # SCRUM-8 - font family to the text editor`):
+   `<Verb> feature # <issue-key> - <short plain-language description>`, using the real issue key
+   from Step 1. End the commit message with:
+   `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`
+3. Push the feature branch created in Step 4 to `origin`, never `main` directly:
+   `git push -u origin <feature-branch>` on the first push (plain `git push` after that, since
+   `-u` already set the upstream).
+4. If the push is rejected (e.g. the remote has diverged), stop and ask the user how to proceed —
+   don't force-push without being explicitly told to.
+5. Report the branch name pushed and confirm success from the actual `git push` output — don't
+   claim it pushed without having run it. Opening a pull request is optional and belongs in Step 9
+   (wrap-up) as something to offer, not do unasked.
+
+## Step 8 — Update the Jira ticket
+
+Once the feature branch is pushed, close the loop on the ticket itself — do this automatically as
+part of finishing the story, not as something to offer/ask permission for (unlike opening a PR in
+Step 9):
+
+1. Post a summary comment on the issue via `mcp__atlassian__addCommentToJiraIssue` covering what
+   changed (files touched), how it maps back to the story's acceptance criteria, the test result
+   (counts, not just "tests pass"), and the feature branch name — the same level of detail you'd
+   give the user in Step 9's wrap-up.
+2. Transition the issue via `mcp__atlassian__getTransitionsForJiraIssue` +
+   `mcp__atlassian__transitionJiraIssue` to whichever returned transition's target status is named
+   **"In Review"** — look it up rather than hardcoding a transition ID, since IDs can differ across
+   projects/workflows.
+
+## Step 9 — Wrap up
 
 - Summarize what changed: files touched, and a one-line mapping back to the story's acceptance
   criteria (does each point from the ticket have a corresponding change?).
 - Report the final test run result verbatim (counts, not just "tests pass").
-- `PROGRESS.md`/`tasklist.md` get updated per *phase*, not per individual task/story — don't
+- `PROGRESS.md`/`tasklist.md` and `README` get updated per *phase*, not per individual task/story — don't
   update them reflexively here. If this story completes a phase of work, ask the user whether
   they want those docs updated now.
-- Optionally offer (don't do it unasked) to post a summary comment back on the Jira issue via
-  `mcp__atlassian__addCommentToJiraIssue`, or transition its status via
-  `mcp__atlassian__getTransitionsForJiraIssue` + `mcp__atlassian__transitionJiraIssue`.
+- Optionally offer (don't do it unasked) to open a pull request from the pushed feature branch
+  (e.g. via `gh pr create`) targeting the base branch resolved in Step 4.
