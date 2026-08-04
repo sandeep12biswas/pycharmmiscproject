@@ -13,6 +13,7 @@ PROJECT_ROOT = Path(SPECPATH).parent  # noqa: F821 -- SPECPATH is injected by Py
 MAIN_SCRIPT = str(PROJECT_ROOT / "main.py")
 RESOURCES_DIR = str(PROJECT_ROOT / "resources")
 SCHEMA_SQL = str(PROJECT_ROOT / "app" / "db" / "schema.sql")
+ICON_FILE = str(PROJECT_ROOT / "resources" / "icons" / "icon.ico")
 
 a = Analysis(  # noqa: F821 -- Analysis/PYZ/EXE/COLLECT are injected by PyInstaller
     [MAIN_SCRIPT],
@@ -52,6 +53,7 @@ exe = EXE(  # noqa: F821
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=ICON_FILE,
 )
 
 coll = COLLECT(  # noqa: F821

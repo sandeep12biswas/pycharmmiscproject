@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=NoteApp
+Comment=Local-first note-taking app
+Exec=/opt/noteapp/NoteApp
+Icon=noteapp
+Terminal=false
+Categories=Utility;Office;
