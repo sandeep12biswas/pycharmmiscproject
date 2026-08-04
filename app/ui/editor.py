@@ -4,14 +4,19 @@ from typing import List
 from PySide6.QtCore import QBuffer, QIODevice, Qt, Signal
 from PySide6.QtGui import (
     QAction,
+    QColor,
     QFont,
+    QIcon,
     QImage,
+    QPainter,
+    QPixmap,
     QTextBlockFormat,
     QTextCharFormat,
     QTextCursor,
     QTextListFormat,
 )
 from PySide6.QtWidgets import (
+    QColorDialog,
     QComboBox,
     QFileDialog,
     QFontComboBox,
@@ -115,6 +120,11 @@ class NoteEditorWidget(QWidget):
         self._strike_action.triggered.connect(self._toggle_strikethrough)
         toolbar.addAction(self._strike_action)
 
+        self._font_color_action = QAction("Font Colour", self)
+        self._font_color_action.setIcon(self._color_icon(self._resolve_color(QTextCharFormat())))
+        self._font_color_action.triggered.connect(self._pick_font_color)
+        toolbar.addAction(self._font_color_action)
+
         self._font_combo = QFontComboBox(self)
         self._font_combo.currentFontChanged.connect(self._on_font_changed)
         toolbar.addWidget(self._font_combo)
@@ -176,6 +186,37 @@ class NoteEditorWidget(QWidget):
         fmt.setFontStrikeOut(checked)
         self._merge_format(fmt)
 
+    def _pick_font_color(self) -> None:
+        current = self._resolve_color(self._body_edit.currentCharFormat())
+        color = QColorDialog.getColor(current, self, "Font Colour")
+        if not color.isValid():
+            return
+        fmt = QTextCharFormat()
+        fmt.setForeground(color)
+        self._merge_format(fmt)
+        self._font_color_action.setIcon(self._color_icon(color))
+
+    def _resolve_color(self, fmt: QTextCharFormat) -> QColor:
+        """The char format's explicit foreground colour, or the editor's
+        current palette text colour when nothing has been explicitly applied
+        -- avoids baking a hardcoded colour into freshly-typed text and
+        keeps the toolbar swatch correct under both light and dark themes."""
+        brush = fmt.foreground()
+        if brush.style() != Qt.BrushStyle.NoBrush:
+            return brush.color()
+        return self._body_edit.palette().color(self._body_edit.foregroundRole())
+
+    @staticmethod
+    def _color_icon(color: QColor) -> QIcon:
+        pixmap = QPixmap(16, 16)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setPen(QColor("gray"))
+        painter.setBrush(color)
+        painter.drawRect(1, 1, 13, 13)
+        painter.end()
+        return QIcon(pixmap)
+
     def _apply_default_font(self) -> None:
         """Applies the remembered (or Aptos-if-installed, else app-default)
         font as the editor's default at construction time, mirroring how
@@ -228,6 +269,8 @@ class NoteEditorWidget(QWidget):
             self._font_combo.blockSignals(True)
             self._font_combo.setCurrentFont(QFont(family))
             self._font_combo.blockSignals(False)
+
+        self._font_color_action.setIcon(self._color_icon(self._resolve_color(fmt)))
 
     # -- block formatting (headings) --------------------------------------------
 
