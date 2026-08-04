@@ -5,6 +5,7 @@ from app.repositories.folders_repo import FoldersRepository
 from app.repositories.notes_repo import NotesRepository
 from app.repositories.reminders_repo import RemindersRepository
 from app.repositories.tags_repo import TagsRepository
+from app.repositories.tiles_repo import TilesRepository
 
 
 @pytest.fixture
@@ -33,3 +34,8 @@ def tags_repo(conn) -> TagsRepository:
 @pytest.fixture
 def reminders_repo(conn) -> RemindersRepository:
     return RemindersRepository(conn)
+
+
+@pytest.fixture
+def tiles_repo(conn) -> TilesRepository:
+    return TilesRepository(conn)
