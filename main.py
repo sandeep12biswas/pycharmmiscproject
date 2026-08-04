@@ -11,6 +11,7 @@ from app.repositories.folders_repo import FoldersRepository
 from app.repositories.notes_repo import NotesRepository
 from app.repositories.reminders_repo import RemindersRepository
 from app.repositories.tags_repo import TagsRepository
+from app.repositories.tiles_repo import TilesRepository
 from app.ui.main_window import MainWindow
 from app.ui.theme import apply_theme, load_theme
 
@@ -30,7 +31,8 @@ def main() -> int:
     folders_repo = FoldersRepository(conn)
     tags_repo = TagsRepository(conn)
     reminders_repo = RemindersRepository(conn)
-    window = MainWindow(repo, folders_repo, tags_repo, reminders_repo)
+    tiles_repo = TilesRepository(conn)
+    window = MainWindow(repo, folders_repo, tags_repo, reminders_repo, tiles_repo)
     window.show()
     exit_code = app.exec()
     conn.close()

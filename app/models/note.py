@@ -13,6 +13,7 @@ class Note:
     is_pinned: bool
     is_favorite: bool
     is_trashed: bool
+    is_canvas: bool
     created_at: str
     updated_at: str
 
@@ -27,6 +28,7 @@ class Note:
             is_pinned=bool(row["is_pinned"]),
             is_favorite=bool(row["is_favorite"]),
             is_trashed=bool(row["is_trashed"]),
+            is_canvas=bool(row["is_canvas"]),
             created_at=row["created_at"],
             updated_at=row["updated_at"],
         )

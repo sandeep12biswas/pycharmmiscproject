@@ -109,6 +109,16 @@ class NotesRepository:
         self._conn.commit()
         logger.debug("Toggled favorite on note id=%s", note_id)
 
+    def set_canvas_mode(self, note_id: int, enabled: bool) -> None:
+        """Canvas tiling (SCRUM-9) is a per-note opt-in mode -- content_html
+        stays untouched either way, tiles live separately in note_tiles."""
+        self._conn.execute(
+            "UPDATE notes SET is_canvas = ?, updated_at = datetime('now') WHERE id = ?",
+            (int(enabled), note_id),
+        )
+        self._conn.commit()
+        logger.debug("Set is_canvas=%s on note id=%s", enabled, note_id)
+
     def trash(self, note_id: int) -> None:
         self._conn.execute(
             "UPDATE notes SET is_trashed = 1, updated_at = datetime('now') WHERE id = ?",

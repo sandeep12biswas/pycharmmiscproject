@@ -142,6 +142,17 @@ def test_toggle_pin_and_favorite(notes_repo):
     assert notes_repo.get(note.id).is_favorite is False
 
 
+def test_set_canvas_mode(notes_repo):
+    note = notes_repo.create(title="N")
+    assert notes_repo.get(note.id).is_canvas is False
+
+    notes_repo.set_canvas_mode(note.id, True)
+    assert notes_repo.get(note.id).is_canvas is True
+
+    notes_repo.set_canvas_mode(note.id, False)
+    assert notes_repo.get(note.id).is_canvas is False
+
+
 def test_trash_and_restore(notes_repo):
     note = notes_repo.create(title="N")
 
