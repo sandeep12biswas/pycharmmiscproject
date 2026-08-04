@@ -1,3 +1,5 @@
+import logging
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QCloseEvent
 from PySide6.QtWidgets import QApplication, QDialog, QMainWindow, QSplitter, QSystemTrayIcon, QToolBar
@@ -15,6 +17,8 @@ from app.ui.note_list import NoteListWidget
 from app.ui.sidebar import SidebarWidget
 from app.ui.theme import Theme, apply_theme, load_theme, save_theme
 from app.ui.tray import TrayIcon
+
+logger = logging.getLogger(__name__)
 
 
 class MainWindow(QMainWindow):
@@ -124,6 +128,7 @@ class MainWindow(QMainWindow):
 
     def _on_dark_theme_toggled(self, checked: bool) -> None:
         theme = Theme.DARK if checked else Theme.LIGHT
+        logger.debug("Theme switched to %s", theme)
         save_theme(theme)
         apply_theme(QApplication.instance(), theme)
 
@@ -151,5 +156,6 @@ class MainWindow(QMainWindow):
         self._tray.notify_reminder(title, message)
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        logger.info("Main window closing; flushing pending autosave")
         self._controller.flush_pending()
         super().closeEvent(event)

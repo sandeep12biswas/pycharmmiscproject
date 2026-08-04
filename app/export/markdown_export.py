@@ -1,7 +1,10 @@
+import logging
 from pathlib import Path
 from typing import Union
 
 from PySide6.QtGui import QTextDocument
+
+logger = logging.getLogger(__name__)
 
 
 def note_to_markdown(title: str, content_html: str) -> str:
@@ -17,3 +20,4 @@ def note_to_markdown(title: str, content_html: str) -> str:
 
 def export_markdown(title: str, content_html: str, file_path: Union[str, Path]) -> None:
     Path(file_path).write_text(note_to_markdown(title, content_html), encoding="utf-8")
+    logger.info("Exported note %r to Markdown: %s", title, file_path)
