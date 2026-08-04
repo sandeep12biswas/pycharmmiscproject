@@ -86,3 +86,45 @@ def test_dragging_starting_on_an_existing_tile_does_not_create_a_new_one(qtbot):
 
     with qtbot.assertNotEmitted(canvas.tileCreateRequested, wait=200):
         _drag(canvas, QPoint(50, 50), QPoint(250, 200))
+
+
+def test_dragging_the_header_repositions_the_tile(qtbot):
+    canvas = CanvasWidget()
+    qtbot.addWidget(canvas)
+    canvas.show()
+    widget = canvas.add_tile(_make_tile(x=0, y=0, width=200, height=150))
+
+    with qtbot.waitSignal(canvas.tileMoved, timeout=1000) as blocker:
+        _drag(widget._header, QPoint(10, 10), QPoint(60, 40))
+
+    tile_id, x, y = blocker.args
+    assert tile_id == widget.tile_id
+    assert (x, y) == (50.0, 30.0)
+    assert (widget.x(), widget.y()) == (50, 30)
+
+
+def test_dragging_the_body_does_not_move_the_tile(qtbot):
+    canvas = CanvasWidget()
+    qtbot.addWidget(canvas)
+    canvas.show()
+    widget = canvas.add_tile(_make_tile(x=0, y=0, width=200, height=150))
+    original_pos = widget.pos()
+
+    with qtbot.assertNotEmitted(canvas.tileMoved, wait=200):
+        # well below the header strip (_TileHeader.HEIGHT == 22)
+        _drag(widget, QPoint(50, 100), QPoint(90, 130))
+
+    assert widget.pos() == original_pos
+
+
+def test_dragging_the_header_clamps_position_to_non_negative(qtbot):
+    canvas = CanvasWidget()
+    qtbot.addWidget(canvas)
+    canvas.show()
+    widget = canvas.add_tile(_make_tile(x=10, y=10, width=200, height=150))
+
+    with qtbot.waitSignal(canvas.tileMoved, timeout=1000) as blocker:
+        _drag(widget._header, QPoint(5, 5), QPoint(-200, -200))
+
+    _, x, y = blocker.args
+    assert (x, y) == (0.0, 0.0)
