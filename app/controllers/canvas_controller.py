@@ -21,6 +21,7 @@ class CanvasController(QObject):
         self._current_note_id: Optional[int] = None
 
         self._canvas.tileCreateRequested.connect(self._on_tile_create_requested)
+        self._canvas.tileMoved.connect(self._on_tile_moved)
 
     def load_note(self, note_id: int) -> None:
         self._current_note_id = note_id
@@ -38,3 +39,10 @@ class CanvasController(QObject):
         tile = self._tiles_repo.create(self._current_note_id, x=x, y=y, width=width, height=height)
         self._canvas.add_tile(tile)
         logger.debug("Tile id=%s created on note_id=%s via drag-create", tile.id, self._current_note_id)
+
+    def _on_tile_moved(self, tile_id: int, x: float, y: float) -> None:
+        tile = self._tiles_repo.get(tile_id)
+        if tile is None:
+            return
+        self._tiles_repo.update_geometry(tile_id, x=x, y=y, width=tile.width, height=tile.height)
+        logger.debug("Tile id=%s moved to (%s, %s)", tile_id, x, y)

@@ -2,18 +2,64 @@ from typing import Dict, Optional
 
 from PySide6.QtCore import QPoint, QRect, Qt, Signal
 from PySide6.QtGui import QPainter, QPen
-from PySide6.QtWidgets import QFrame, QWidget
+from PySide6.QtWidgets import QFrame, QVBoxLayout, QWidget
 
 from app.models.tile import Tile
 from app.repositories.tiles_repo import MIN_TILE_HEIGHT, MIN_TILE_WIDTH
 
 
+class _TileHeader(QWidget):
+    """Drag handle strip at the top of a TileWidget (SCRUM-11/AC2 -- tiles
+    move by their header/title bar, not by clicking anywhere in the body).
+    Just a bare strip for now; SCRUM-15 drops a title field + delete icon
+    into this same widget rather than building its own header."""
+
+    HEIGHT = 22
+
+    def __init__(self, parent: "TileWidget"):
+        super().__init__(parent)
+        self.setFixedHeight(self.HEIGHT)
+        self.setObjectName("tileHeader")
+        self.setStyleSheet(
+            "#tileHeader { background: palette(midlight);"
+            " border-top-left-radius: 4px; border-top-right-radius: 4px; }"
+        )
+        self.setCursor(Qt.CursorShape.SizeAllCursor)
+        self._drag_start_global: Optional[QPoint] = None
+        self._drag_start_tile_pos: Optional[QPoint] = None
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() != Qt.MouseButton.LeftButton:
+            super().mousePressEvent(event)
+            return
+        self._drag_start_global = event.globalPosition().toPoint()
+        self._drag_start_tile_pos = self.parentWidget().pos()
+
+    def mouseMoveEvent(self, event) -> None:
+        if self._drag_start_global is None:
+            super().mouseMoveEvent(event)
+            return
+        delta = event.globalPosition().toPoint() - self._drag_start_global
+        new_pos = self._drag_start_tile_pos + delta
+        new_pos.setX(max(new_pos.x(), 0))
+        new_pos.setY(max(new_pos.y(), 0))
+        self.parentWidget().move(new_pos)
+
+    def mouseReleaseEvent(self, event) -> None:
+        if self._drag_start_global is None:
+            super().mouseReleaseEvent(event)
+            return
+        self._drag_start_global = None
+        self._drag_start_tile_pos = None
+        self.parentWidget().notify_position_changed()
+
+
 class TileWidget(QFrame):
-    """An inert bordered tile shell positioned by absolute geometry on a
-    CanvasWidget. Dragging to reposition (SCRUM-11), resize handles
-    (SCRUM-12), and in-tile rich text editing (SCRUM-13) are each their own
-    follow-up sub-task -- this is deliberately just the visible border +
-    geometry AC1 asks for."""
+    """A bordered tile positioned by absolute geometry on a CanvasWidget:
+    a drag-handle header (SCRUM-11) on top, an empty body below (resize
+    handles are SCRUM-12, in-tile rich text editing is SCRUM-13)."""
+
+    positionChanged = Signal(int, float, float)  # tile_id, x, y
 
     def __init__(self, tile: Tile, parent=None):
         super().__init__(parent)
@@ -23,6 +69,17 @@ class TileWidget(QFrame):
             "#tileWidget { border: 1px solid palette(mid); border-radius: 4px; background: palette(base); }"
         )
 
+        self._header = _TileHeader(self)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self._header)
+        layout.addStretch()
+
+    def notify_position_changed(self) -> None:
+        self.positionChanged.emit(self.tile_id, float(self.x()), float(self.y()))
+
 
 class CanvasWidget(QWidget):
     """Free-form canvas for a single note in canvas mode (SCRUM-9/AC1).
@@ -31,6 +88,7 @@ class CanvasWidget(QWidget):
     app/ui/ mediates writes."""
 
     tileCreateRequested = Signal(float, float, float, float)  # x, y, width, height
+    tileMoved = Signal(int, float, float)  # tile_id, x, y
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -88,6 +146,7 @@ class CanvasWidget(QWidget):
     def add_tile(self, tile: Tile) -> TileWidget:
         widget = TileWidget(tile, self)
         widget.setGeometry(int(tile.x), int(tile.y), int(tile.width), int(tile.height))
+        widget.positionChanged.connect(self.tileMoved)
         widget.show()
         self._tiles[tile.id] = widget
         return widget
