@@ -25,6 +25,9 @@ database. Single-user, offline-first, no cloud sync in v1.
 - FR-7: Editor supports headings, bullet lists, numbered lists, and checklists.
 - FR-8: Editor supports embedding images inline within a note.
 - FR-9: Formatting persists correctly through save/reload (no data loss on round-trip).
+- FR-9a: Editor provides a font-family dropdown listing the system's installed fonts (Linux and
+  Windows). It defaults to Aptos when installed, else the application's default font. The chosen
+  font persists across restarts and pre-selects the next time the editor is opened.
 
 ### 2.3 Organization
 - FR-10: User can organize notes into folders (hierarchical, nested).

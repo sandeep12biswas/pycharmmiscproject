@@ -330,6 +330,34 @@ except `resources/icons/` (never became necessary).
   `hasattr(sys, "_MEIPASS")` and resolves under PyInstaller's runtime extraction root when frozen, falling
   back to the dev-mode `Path(__file__).resolve().parent.parent / "resources"` otherwise. This is the
   "resource-path helper working in both dev and frozen modes" `tasklist.md` called for.
+- **Editor font preference is a global `QSettings` value, not per-note** (SCRUM-8): `app/ui/font_prefs.py`
+  follows `app/ui/theme.py`'s exact pattern — `load_font_family()`/`save_font_family()` against the same
+  `settings.ini` via `get_settings_path()`. `resolve_default_font_family()` returns `"Aptos"` only if
+  `QFontDatabase.families()` actually reports it installed (it's a Windows 11/Office 2021+ font, not a
+  Linux system font and not guaranteed on older Windows), else falls back to `QGuiApplication.font().family()`
+  — no bundled font file, no licensing entanglement. `load_font_family()` also re-validates a previously
+  saved family is still installed before trusting it (covers moving the settings file to a machine/profile
+  without that font). `NoteEditorWidget` is a single reused instance across note switches (constructed once
+  in `MainWindow.__init__`), so applying the remembered font once at construction (`_apply_default_font()`)
+  is sufficient to satisfy "reopen with the same font selected" — no per-note DB column needed; per-note
+  font formatting (when explicitly applied via the toolbar) already rides along inside `content_html` the
+  same way bold/italic do.
+- **Gotcha: `QTextCharFormat.fontFamily()` (Qt's deprecated accessor) segfaults when read repeatedly from
+  inside `currentCharFormatChanged`/`cursorPositionChanged` handlers**, confirmed with a minimal repro
+  outside pytest (a bare `QTextEdit` + repeated `setPlainText()` calls, no `QFontComboBox` involved) on
+  PySide6 6.11.1 in this environment — not specific to `QFontComboBox` or to this codebase's wiring, and
+  not a reentrancy problem with the *setter* (`setFontFamily()` works, just deprecated). Found via
+  `test_editor_load_stays_fast_for_a_large_note` (`tests/test_performance.py`) crashing the whole pytest
+  process rather than failing normally. Fixed by reading `fmt.font().family()` instead, and writing via
+  `fmt.setFontFamilies([family])` instead of `setFontFamily()` — both are the non-deprecated replacements
+  and don't crash under the same repro. If a future `currentCharFormatChanged`/`cursorPositionChanged`
+  handler needs any other deprecated `QTextCharFormat.font*()` accessor, verify it the same way (a tight
+  `setPlainText()` loop outside pytest) before trusting it under load — the existing bold/italic/underline/
+  strikethrough getters (`fontWeight()`, `fontItalic()`, etc.) were checked and are fine, only
+  `fontFamily()` reproduces the crash. Also added an early return in
+  `NoteEditorWidget._sync_toolbar_from_format()` for `self._loading` (skips toolbar sync entirely while
+  `load()` is running) — a genuine perf win on top of the crash fix, since `setHtml()` on a large note
+  fires these signals once per block.
 
 ## Environment notes
 
