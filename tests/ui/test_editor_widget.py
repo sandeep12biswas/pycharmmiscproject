@@ -1,6 +1,7 @@
-from PySide6.QtGui import QFont, QFontDatabase, QImage, QTextCursor
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QImage, QTextCursor
 
 from app.ui import font_prefs
+from app.ui import editor as editor_module
 from app.ui.editor import CHECKBOX_CHECKED, CHECKBOX_UNCHECKED, NoteEditorWidget
 
 
@@ -208,3 +209,71 @@ def test_cursor_position_sync_reflects_font_under_cursor(qtbot, monkeypatch, tmp
     editor._body_edit.setTextCursor(cursor)
 
     assert editor._font_combo.currentFont().family() == target
+
+
+def test_font_color_action_applies_to_selection_and_persists_in_html(qtbot, monkeypatch):
+    monkeypatch.setattr(editor_module.QColorDialog, "getColor", lambda *a, **k: QColor("#ff0000"))
+
+    editor = _make_editor(qtbot)
+    editor._body_edit.setPlainText("colour me")
+    editor._body_edit.selectAll()
+
+    editor._font_color_action.trigger()
+
+    fmt = editor._body_edit.textCursor().charFormat()
+    assert fmt.foreground().color() == QColor("#ff0000")
+    assert "#ff0000" in editor.html().lower()
+
+
+def test_font_color_applies_before_typing(qtbot, monkeypatch):
+    """A colour picked with no selection (an empty cursor) should apply to
+    text typed afterwards -- covers the "select a colour before typing"
+    acceptance criterion."""
+    monkeypatch.setattr(editor_module.QColorDialog, "getColor", lambda *a, **k: QColor("#00ff00"))
+
+    editor = _make_editor(qtbot)
+
+    editor._font_color_action.trigger()
+    editor._body_edit.setPlainText("green text")
+
+    fmt = editor._body_edit.textCursor().charFormat()
+    assert fmt.foreground().color() == QColor("#00ff00")
+
+
+def test_font_color_cancelled_dialog_leaves_format_unchanged(qtbot, monkeypatch):
+    monkeypatch.setattr(editor_module.QColorDialog, "getColor", lambda *a, **k: QColor())  # invalid == cancelled
+
+    editor = _make_editor(qtbot)
+    editor._body_edit.setPlainText("unchanged")
+    editor._body_edit.selectAll()
+
+    editor._font_color_action.trigger()
+
+    fmt = editor._body_edit.textCursor().charFormat()
+    assert fmt.foreground().style().name == "NoBrush"
+
+
+def test_font_color_round_trips_through_load(qtbot):
+    """A note re-opened after being saved with an explicit font colour
+    (content_html is the authoritative store) keeps that colour."""
+    editor = _make_editor(qtbot)
+
+    editor.load("Title", '<p><span style="color:#0000ff;">blue text</span></p>', [])
+
+    cursor = editor._body_edit.textCursor()
+    cursor.movePosition(QTextCursor.MoveOperation.Start)
+    cursor.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.KeepAnchor, 1)
+    fmt = cursor.charFormat()
+    assert fmt.foreground().color() == QColor("#0000ff")
+
+
+def test_font_color_swatch_icon_updates_after_pick(qtbot, monkeypatch):
+    monkeypatch.setattr(editor_module.QColorDialog, "getColor", lambda *a, **k: QColor("#123456"))
+
+    editor = _make_editor(qtbot)
+    editor._body_edit.setPlainText("swatch")
+    editor._body_edit.selectAll()
+
+    editor._font_color_action.trigger()
+
+    assert not editor._font_color_action.icon().isNull()
